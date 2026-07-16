@@ -1,8 +1,25 @@
+# ===== 构建阶段 =====
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# 安装所有依赖（含 devDependencies）
+COPY package.json package-lock.json ./
+COPY server/package.json server/
+COPY web/package.json web/
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm ci --ignore-scripts --no-audit --no-fund
+
+# 拷贝源码并构建
+COPY server/ server/
+COPY web/ web/
+RUN npm run build
+
+# ===== 生产阶段 =====
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
-# 只安装 server 运行时依赖（使用淘宝镜像加速）
+# 只安装 server 运行时依赖
 WORKDIR /app/server
 COPY server/package.json ./
 RUN npm config set registry https://registry.npmmirror.com && \
@@ -10,8 +27,8 @@ RUN npm config set registry https://registry.npmmirror.com && \
     npm cache clean --force
 
 # 拷贝构建产物
-COPY server/dist ./dist
-COPY web/dist ../web/dist
+COPY --from=builder /app/server/dist ./dist
+COPY --from=builder /app/web/dist ../web/dist
 
 WORKDIR /app
 RUN mkdir -p /app/data
