@@ -1,9 +1,9 @@
 services:
-  xgoatcast:
+  xgoatcast-single:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: xgoatcast
+    container_name: xgoatcast-single
     restart: unless-stopped
     init: true
     ports:
@@ -13,7 +13,7 @@ services:
     environment:
       - NODE_ENV=production
     volumes:
-      - ./data:/app/data
+      - xgoatcast-data:/app/data
     logging:
       driver: json-file
       options:
@@ -25,3 +25,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  xgoatcast-data:
