@@ -10,11 +10,10 @@ export interface AppConfig {
     triggerWords: string;
   };
   session: {
-    gracePeriodSec: number;
-    noPublisherTimeoutSec: number;
+    /** 未共享屏幕时的链接失效倒计时（秒）：包括未开始共享、中断/停止共享等 */
+    idleTimeoutSec: number;
+    /** 心跳间隔（秒）：共享客户端定时发送心跳用于检测断连，内部使用 */
     heartbeatIntervalSec: number;
-    /** 停止共享后的恢复宽限期（秒）：宽限期内原链接仍可重新开共享 / 观看 */
-    shareStopGraceSec: number;
     /** 无人观看持续多少秒后自动结束直播（节省计费） */
     noViewerTimeoutSec: number;
   };
@@ -103,10 +102,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     triggerWords: '屏幕共享,共享屏幕',
   },
   session: {
-    gracePeriodSec: 30,
-    noPublisherTimeoutSec: 60,
+    idleTimeoutSec: 60,
     heartbeatIntervalSec: 5,
-    shareStopGraceSec: 60,
     noViewerTimeoutSec: 180,
   },
   admin: {

@@ -50,9 +50,9 @@ export function useAgoraView(token: string, active: boolean) {
             if (mediaType === 'video') {
               videoRef.current = user.videoTrack;
               // 在专用容器中播放（不触碰 React 管理的 DOM）
-              // fit: 'cover' 让视频填满容器，避免周围出现黑边
+              // fit: 'contain' 完整显示屏幕内容，避免边缘被裁切
               if (playerContainerRef.current) {
-                user.videoTrack.play(playerContainerRef.current, { fit: 'cover' });
+                user.videoTrack.play(playerContainerRef.current, { fit: 'contain' });
               }
               setState((s) => ({ ...s, hasVideo: true }));
             }

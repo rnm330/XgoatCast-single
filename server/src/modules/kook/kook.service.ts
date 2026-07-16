@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '../config/config.service';
 import { SessionService } from '../session/session.service';
 import { EventBusService } from '../events/events.service';
-import { buildShareCard, buildShareLinkCard, buildEndedCard, buildHelpCard, getCoverUrl } from './card-builder';
+import { buildShareCard, buildShareLinkCard, buildEndedCard, buildEndedShareCard, buildHelpCard, getCoverUrl } from './card-builder';
 import { KookClient, KookMessageEvent, KookButtonClickEvent } from './kook-client';
 
 @Injectable()
@@ -289,25 +289,51 @@ export class KookService implements OnModuleInit {
       return;
     }
 
-    // 发送「已结束」小卡片（带统计信息和重新发起回调按钮），不修改原卡片
-    if (event.targetChannelId) {
+    const session = this.sessionService.getById(event.sessionId);
+    
+    // 计算计费时长
+    const info = session ? this.sessionService.toInfo(session) : null;
+    const billingMinutes = info?.billingMinutes || 0;
+
+    // 如果存在 cardMessageId，则更新原有卡片；否则发送新卡片
+    if (event.cardMessageId) {
       try {
-        const session = this.sessionService.getById(event.sessionId);
-        
-        // 计算计费时长
-        const info = session ? this.sessionService.toInfo(session) : null;
-        const billingMinutes = info?.billingMinutes || 0;
-        
-        const endedCard = buildEndedCard({
+        const endedShareCard = buildEndedShareCard({
+          sharerUsername: session?.sharerUsername || '匿名用户',
           totalViewerJoins: session?.totalViewerJoins || 0,
           durationMs: session?.durationMs || null,
           billingMinutes,
         });
-        await this.bot.sendCardMessage(event.targetChannelId, endedCard);
-        this.logger.log(`ended card sent to ${event.targetChannelId}`);
+        await this.bot.updateMessage(event.cardMessageId, JSON.stringify(endedShareCard), 10);
+        this.logger.log(`ended card updated: ${event.cardMessageId}`);
       } catch (err: any) {
-        this.logger.error('send ended card failed: ' + (err?.message || err));
+        this.logger.error('update ended card failed: ' + (err?.message || err));
+        // 更新失败时，发送新卡片作为降级方案
+        await this.sendNewEndedCard(event.targetChannelId, session, billingMinutes);
       }
+    } else if (event.targetChannelId) {
+      // 没有 cardMessageId 时，发送新卡片
+      await this.sendNewEndedCard(event.targetChannelId, session, billingMinutes);
+    }
+  }
+
+  private async sendNewEndedCard(
+    targetChannelId: string | undefined,
+    session: any,
+    billingMinutes: number,
+  ) {
+    if (!targetChannelId) return;
+    
+    try {
+      const endedCard = buildEndedCard({
+        totalViewerJoins: session?.totalViewerJoins || 0,
+        durationMs: session?.durationMs || null,
+        billingMinutes,
+      });
+      await this.bot?.sendCardMessage(targetChannelId, endedCard);
+      this.logger.log(`new ended card sent to ${targetChannelId}`);
+    } catch (err: any) {
+      this.logger.error('send ended card failed: ' + (err?.message || err));
     }
   }
 

@@ -168,6 +168,63 @@ export function buildEndedCard(opts: {
   ];
 }
 
+/** 共享结束后更新原卡片的状态（用于更新已存在的共享卡片） */
+export function buildEndedShareCard(opts: {
+  sharerUsername: string;
+  totalViewerJoins: number;
+  durationMs: number | null;
+  billingMinutes: number;
+}): unknown {
+  const totalSeconds = opts.durationMs ? Math.max(0, Math.round(opts.durationMs / 1000)) : 0;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const durationText = hours > 0
+    ? `${hours}小时${minutes}分${seconds}秒`
+    : `${minutes}分${seconds}秒`;
+  const cost = (opts.billingMinutes * 0.007).toFixed(2);
+
+  return [
+    {
+      type: 'card',
+      theme: 'secondary',
+      size: 'lg',
+      modules: [
+        {
+          type: 'section',
+          text: {
+            type: 'kmarkdown',
+            content: '**屏幕共享已结束** 🐑\n' + (opts.sharerUsername || '匿名用户') + ' 的屏幕共享已结束',
+          },
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'kmarkdown',
+            content:
+              `📊 **统计信息**\n` +
+              `• 观看总人数：${opts.totalViewerJoins} 人\n` +
+              `• 屏幕共享总时长：${durationText}\n` +
+              `• 消耗直播服务器费用：¥${cost}`,
+          },
+        },
+        {
+          type: 'action-group',
+          elements: [
+            {
+              type: 'button',
+              text: { type: 'plain-text', content: '🔄 重新发起共享' },
+              theme: 'primary',
+              click: 'return-val',
+              value: 'reshare',
+            },
+          ],
+        },
+      ],
+    },
+  ];
+}
+
 /** 帮助指令卡片 */
 export function buildHelpCard(): unknown {
   return [

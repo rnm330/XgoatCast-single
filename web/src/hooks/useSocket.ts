@@ -8,7 +8,7 @@ interface SocketState {
   viewerCount: number;
   ended: boolean;
   publisherClientId?: string;
-  graceRemainingSec?: number;
+  idleRemainingSec?: number;
   noViewerRemainingSec?: number;
 }
 
@@ -67,7 +67,7 @@ export function useSocket(token: string, role: 'publisher' | 'viewer') {
       status: SessionStatus;
       viewerCount: number;
       publisherClientId?: string;
-      graceRemainingSec?: number;
+      idleRemainingSec?: number;
       noViewerRemainingSec?: number;
     }) => {
       setState((s) => ({
@@ -75,7 +75,7 @@ export function useSocket(token: string, role: 'publisher' | 'viewer') {
         status: data.status,
         viewerCount: data.viewerCount,
         publisherClientId: data.publisherClientId,
-        graceRemainingSec: data.graceRemainingSec,
+        idleRemainingSec: data.idleRemainingSec,
         noViewerRemainingSec: data.noViewerRemainingSec,
       }));
     });

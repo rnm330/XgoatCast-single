@@ -50,23 +50,13 @@ class KookConfigDto {
 class SessionConfigDto {
   @IsOptional()
   @IsNumber()
-  @Min(5)
-  gracePeriodSec?: number;
-
-  @IsOptional()
-  @IsNumber()
   @Min(10)
-  noPublisherTimeoutSec?: number;
+  idleTimeoutSec?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(2)
   heartbeatIntervalSec?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(10)
-  shareStopGraceSec?: number;
 
   @IsOptional()
   @IsNumber()

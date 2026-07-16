@@ -54,26 +54,10 @@
 
 完整部署与 Nginx 反向代理（含 WebSocket 升级、HTTPS）配置见 [DEPLOY.md](./DEPLOY.md)。
 
-### 本地开发模式
-
-```bash
-# 安装依赖（npm workspaces，含 server 与 web）
-npm install
-
-# 复制环境变量
-cp .env.example .env
-
-# 分别启动后端与前端
-npm run dev:server   # 后端 http://localhost:3520
-npm run dev:web      # 前端 http://localhost:5173
-```
-
 可用脚本：
 
 | 脚本 | 说明 |
 |------|------|
-| `npm run dev:server` | 启动后端（watch 模式） |
-| `npm run dev:web` | 启动前端 Vite 开发服务器 |
 | `npm run build` | 构建前后端（输出 `server/dist`、`web/dist`） |
 | `npm run start` | 以生产模式启动后端（需先 `build`） |
 

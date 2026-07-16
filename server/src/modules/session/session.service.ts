@@ -34,7 +34,7 @@ export class SessionService implements OnModuleInit {
     for (const s of data.sessions) {
       // 服务器重启后不再强制结束所有 session，而是让 watchdog 自然处理：
       // - ACTIVE 的 session 心跳已超时，watchdog 会先进入 GRACE 再超时结束
-      // - PENDING 的 session 仍可用，直到 noPublisherTimeoutSec*2 超时
+      // - PENDING 的 session 仍可用，直到 idleTimeoutSec 超时
       // - GRACE 的 session 继续倒计时
       // 这样服务器重启（如 Docker 重建）不会立即让所有链接失效
 
@@ -193,7 +193,7 @@ export class SessionService implements OnModuleInit {
   /**
    * 停止共享：进入「恢复宽限期」而非立即结束。
    * 宽限期内原链接仍可重新开共享（分享者再次点击开始）或继续观看，
-   * 直到持续 shareStopGraceSec 秒没有任何共享才真正结束。
+   * 直到持续 idleTimeoutSec 秒没有任何共享才真正结束。
    */
   stopSharing(token: string): ShareSession | undefined {
     const session = this.getByToken(token);
@@ -205,7 +205,7 @@ export class SessionService implements OnModuleInit {
     session.lastHeartbeat = now;
     void this.persist();
     this.logger.log(
-      `stopSharing: session=${session.id} entered 'stopped' grace, recoverable for ${this.config.get().session.shareStopGraceSec}s`,
+      `stopSharing: session=${session.id} entered 'stopped' grace, idle timeout ${this.config.get().session.idleTimeoutSec}s`,
     );
     return session;
   }
@@ -225,10 +225,10 @@ export class SessionService implements OnModuleInit {
       if (count > session.peakViewers) {
         session.peakViewers = count;
       }
-      // 无人观看自动结束计时：有观众则清除计时，无观众且共享中则开始计时
+      // 无人观看自动结束计时：有观众则清除计时，无观众则开始计时（任何非ENDED状态）
       if (count > 0) {
         session.lastViewerAt = null;
-      } else if (session.status === SessionStatus.ACTIVE) {
+      } else if (session.status !== SessionStatus.ENDED) {
         session.lastViewerAt = Date.now();
       }
     }
@@ -317,21 +317,22 @@ export class SessionService implements OnModuleInit {
       ? `${durationMin.toFixed(1)}分 × ${totalUsers}人 × (${qi.coefficient}视频+1音频) = ${billingMinutes} 分钟`
       : '-';
 
-    // 计算 GRACE 剩余秒数
-    let graceRemainingSec: number | undefined;
-    if (session.status === SessionStatus.GRACE && session.graceStartedAt) {
-      const graceSec =
-        session.graceReason === 'stopped'
-          ? this.config.get().session.shareStopGraceSec
-          : this.config.get().session.gracePeriodSec;
+    // 计算未共享屏幕倒计时剩余秒数（PENDING / GRACE 状态）
+    let idleRemainingSec: number | undefined;
+    if (session.status === SessionStatus.PENDING) {
+      const idleCfg = this.config.get().session.idleTimeoutSec;
+      const elapsed = (Date.now() - session.createdAt) / 1000;
+      idleRemainingSec = Math.max(0, Math.ceil(idleCfg - elapsed));
+    } else if (session.status === SessionStatus.GRACE && session.graceStartedAt) {
+      const idleCfg = this.config.get().session.idleTimeoutSec;
       const elapsed = (Date.now() - session.graceStartedAt) / 1000;
-      graceRemainingSec = Math.max(0, Math.ceil(graceSec - elapsed));
+      idleRemainingSec = Math.max(0, Math.ceil(idleCfg - elapsed));
     }
 
-    // 计算无人观看自动结束剩余秒数
+    // 计算无人观看自动结束剩余秒数（任何非 ENDED 状态，viewerCount=0）
     let noViewerRemainingSec: number | undefined;
     if (
-      session.status === SessionStatus.ACTIVE &&
+      session.status !== SessionStatus.ENDED &&
       session.viewerCount === 0 &&
       session.lastViewerAt
     ) {
@@ -358,7 +359,7 @@ export class SessionService implements OnModuleInit {
       billingMinutes,
       billingDetail,
       publisherClientId: session.publisherClientId,
-      graceRemainingSec,
+      idleRemainingSec,
       noViewerRemainingSec,
     };
   }
@@ -369,18 +370,10 @@ export class SessionService implements OnModuleInit {
     const now = Date.now();
 
     for (const session of this.sessions.values()) {
-      if (
-        session.status === SessionStatus.ENDED ||
-        session.status === SessionStatus.PENDING
-      ) {
-        continue;
-      }
+      if (session.status === SessionStatus.ENDED) continue;
 
-      const elapsed = now - session.lastHeartbeat;
-
-      // 无人观看持续超时则自动结束（节省计费）
+      // === 无人观看倒计时（任何非 ENDED 状态） ===
       if (
-        session.status === SessionStatus.ACTIVE &&
         session.viewerCount === 0 &&
         session.lastViewerAt &&
         now - session.lastViewerAt > cfg.noViewerTimeoutSec * 1000
@@ -389,43 +382,40 @@ export class SessionService implements OnModuleInit {
         continue;
       }
 
-      if (
-        session.status === SessionStatus.ACTIVE &&
-        elapsed > cfg.heartbeatIntervalSec * 1000 * 3
-      ) {
-        session.status = SessionStatus.GRACE;
-        session.graceReason = 'heartbeat';
-        session.graceStartedAt = now;
-        this.logger.warn(
-          'session ' + session.id + ' heartbeat lost, entering grace',
-        );
-        // 广播状态变更，让前端即时感知 GRACE
-        this.bus.emitSessionStateChanged({
-          sessionId: session.id,
-          status: session.status,
-          viewerCount: session.viewerCount,
-        });
+      // === 未共享屏幕倒计时 ===
+
+      // PENDING 状态：等待开始共享
+      if (session.status === SessionStatus.PENDING) {
+        if (now - session.createdAt > cfg.idleTimeoutSec * 1000) {
+          this.endSession(session.id, 'idle_timeout');
+        }
         continue;
       }
 
-      if (session.status === SessionStatus.GRACE && session.graceStartedAt) {
-        // 主动停止：使用较长的恢复宽限期；心跳丢失：使用原宽限期
-        const graceSec =
-          session.graceReason === 'stopped'
-            ? cfg.shareStopGraceSec
-            : cfg.gracePeriodSec;
-        if (now - session.graceStartedAt > graceSec * 1000) {
-          this.endSession(session.id, 'grace_timeout');
-          continue;
+      // ACTIVE 状态：心跳丢失 → 进入 GRACE
+      if (session.status === SessionStatus.ACTIVE) {
+        const elapsed = now - session.lastHeartbeat;
+        if (elapsed > cfg.heartbeatIntervalSec * 1000 * 3) {
+          session.status = SessionStatus.GRACE;
+          session.graceReason = 'heartbeat';
+          session.graceStartedAt = now;
+          this.logger.warn(
+            'session ' + session.id + ' heartbeat lost, entering grace',
+          );
+          this.bus.emitSessionStateChanged({
+            sessionId: session.id,
+            status: session.status,
+            viewerCount: session.viewerCount,
+          });
         }
+        continue;
       }
-    }
 
-    for (const session of this.sessions.values()) {
-      if (session.status === SessionStatus.PENDING) {
-        const elapsed = now - session.createdAt;
-        if (elapsed > cfg.noPublisherTimeoutSec * 1000 * 2) {
-          this.endSession(session.id, 'pending_timeout');
+      // GRACE 状态：统一使用 idleTimeoutSec
+      if (session.status === SessionStatus.GRACE && session.graceStartedAt) {
+        if (now - session.graceStartedAt > cfg.idleTimeoutSec * 1000) {
+          this.endSession(session.id, 'idle_timeout');
+          continue;
         }
       }
     }

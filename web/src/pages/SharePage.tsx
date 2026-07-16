@@ -50,9 +50,9 @@ export default function SharePage() {
   const [copied, setCopied] = useState(false);
   const [allowedQualities, setAllowedQualities] = useState<string[]>(QUALITY_OPTIONS.map((q) => q.key));
   const [shareError, setShareError] = useState('');
-  const [graceCountdown, setGraceCountdown] = useState<number | null>(null);
+  const [idleCountdown, setIdleCountdown] = useState<number | null>(null);
   const [noViewerCountdown, setNoViewerCountdown] = useState<number | null>(null);
-  const graceDeadlineRef = useRef<number | null>(null);
+  const idleDeadlineRef = useRef<number | null>(null);
   const noViewerDeadlineRef = useRef<number | null>(null);
 
   const socket = useSocket(token, 'publisher');
@@ -88,28 +88,28 @@ export default function SharePage() {
       .catch((e) => { setLoadError(e.message || '加载失败'); setLoading(false); });
   }, [token]);
 
-  // GRACE 倒计时：基于绝对时间戳，避免后台/节能模式下 setTimeout 节流导致与服务器不同步
+  // 未共享屏幕倒计时：基于绝对时间戳，避免后台/节能模式下 setTimeout 节流导致与服务器不同步
   useEffect(() => {
-    if (socket.graceRemainingSec != null && socket.graceRemainingSec > 0) {
-      graceDeadlineRef.current = Date.now() + socket.graceRemainingSec * 1000;
+    if (socket.idleRemainingSec != null && socket.idleRemainingSec > 0) {
+      idleDeadlineRef.current = Date.now() + socket.idleRemainingSec * 1000;
     } else {
-      graceDeadlineRef.current = null;
+      idleDeadlineRef.current = null;
     }
-  }, [socket.graceRemainingSec]);
+  }, [socket.idleRemainingSec]);
 
   useEffect(() => {
-    if (graceDeadlineRef.current == null) {
-      setGraceCountdown(null);
+    if (idleDeadlineRef.current == null) {
+      setIdleCountdown(null);
       return;
     }
     const tick = () => {
-      const remain = Math.max(0, Math.ceil((graceDeadlineRef.current! - Date.now()) / 1000));
-      setGraceCountdown(remain);
+      const remain = Math.max(0, Math.ceil((idleDeadlineRef.current! - Date.now()) / 1000));
+      setIdleCountdown(remain);
     };
     tick();
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
-  }, [socket.graceRemainingSec]);
+  }, [socket.idleRemainingSec]);
 
   // 无人观看自动结束倒计时（同样基于绝对时间戳）
   useEffect(() => {
@@ -343,8 +343,8 @@ export default function SharePage() {
             >
               <Monitor className="w-6 h-6" />
               恢复共享
-              {graceCountdown != null && graceCountdown > 0 && (
-                <span className="text-sm opacity-80">（剩余 {graceCountdown}s）</span>
+              {idleCountdown != null && idleCountdown > 0 && (
+                <span className="text-sm opacity-80">（剩余 {idleCountdown}s）</span>
               )}
             </button>
           ) : activeElsewhere ? (
@@ -369,6 +369,9 @@ export default function SharePage() {
             >
               <Monitor className="w-6 h-6" />
               选择共享窗口
+              {socket.status === 'pending' && idleCountdown != null && idleCountdown > 0 && (
+                <span className="text-sm opacity-80">（剩余 {idleCountdown}s）</span>
+              )}
             </button>
           )}
 
@@ -376,8 +379,10 @@ export default function SharePage() {
           {!screenShare.isSharing && !socket.ended && !lockedByOther && !activeElsewhere && (
             <p className="text-xs text-dim text-center mt-3">
               {socket.status === 'grace' && isPublisher
-                ? '点击按钮恢复共享，超过恢复时间链接将失效'
-                : '点击后浏览器会弹窗选择要共享的屏幕或窗口'}
+                ? '点击按钮恢复共享，超时未共享屏幕链接将失效'
+                : socket.status === 'pending'
+                  ? '点击后浏览器会弹窗选择要共享的屏幕或窗口，超时未开始共享链接将失效'
+                  : '点击后浏览器会弹窗选择要共享的屏幕或窗口'}
             </p>
           )}
         </div>

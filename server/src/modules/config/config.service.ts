@@ -60,10 +60,8 @@ export class ConfigService implements OnModuleInit {
         triggerWords: process.env.KOOK_TRIGGER_WORDS || '屏幕共享,共享屏幕',
       },
       session: {
-        gracePeriodSec: 30,
-        noPublisherTimeoutSec: 60,
+        idleTimeoutSec: 60,
         heartbeatIntervalSec: 5,
-        shareStopGraceSec: 60,
         noViewerTimeoutSec: 180,
       },
       admin: {

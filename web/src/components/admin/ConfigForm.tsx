@@ -124,41 +124,14 @@ export function ConfigForm() {
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        <ConfigSection title="会话保活" desc="控制声网计费的关键参数">
+        <ConfigSection title="会话超时" desc="控制共享链接失效的关键参数">
           <div className="grid grid-cols-1 gap-3">
             <Field
-              label="重连宽限期（秒）"
+              label="未共享屏幕超时（秒）"
               type="number"
-              value={String(config.session.gracePeriodSec)}
-              onChange={(v) => update(['session', 'gracePeriodSec'], Number(v))}
-              description="心跳丢失后，等待用户重新连接的时间。超时后共享自动结束"
-            />
-            <Field
-              label="无发布者超时（秒）"
-              type="number"
-              value={String(config.session.noPublisherTimeoutSec)}
-              onChange={(v) =>
-                update(['session', 'noPublisherTimeoutSec'], Number(v))
-              }
-              description="没有发布者（共享者）连接的时间阈值，超时后共享自动结束"
-            />
-            <Field
-              label="心跳间隔（秒）"
-              type="number"
-              value={String(config.session.heartbeatIntervalSec)}
-              onChange={(v) =>
-                update(['session', 'heartbeatIntervalSec'], Number(v))
-              }
-              description="客户端向服务器发送心跳的间隔，用于检测连接状态"
-            />
-            <Field
-              label="停止后恢复宽限（秒）"
-              type="number"
-              value={String(config.session.shareStopGraceSec)}
-              onChange={(v) =>
-                update(['session', 'shareStopGraceSec'], Number(v))
-              }
-              description="用户主动停止共享后，原链接仍可恢复共享的时间窗口"
+              value={String(config.session.idleTimeoutSec)}
+              onChange={(v) => update(['session', 'idleTimeoutSec'], Number(v))}
+              description="未开始共享屏幕或共享中断后，等待重新开始共享的时间。超时后链接失效"
             />
             <Field
               label="无人观看超时（秒）"
@@ -168,6 +141,15 @@ export function ConfigForm() {
                 update(['session', 'noViewerTimeoutSec'], Number(v))
               }
               description="没有观众观看的时间阈值，超时后共享自动结束，节省服务器费用"
+            />
+            <Field
+              label="心跳间隔（秒）"
+              type="number"
+              value={String(config.session.heartbeatIntervalSec)}
+              onChange={(v) =>
+                update(['session', 'heartbeatIntervalSec'], Number(v))
+              }
+              description="客户端发送心跳的间隔，用于检测共享者断连（内部使用，一般无需修改）"
             />
           </div>
         </ConfigSection>

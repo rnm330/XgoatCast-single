@@ -59,8 +59,8 @@ export interface SessionInfo {
   billingDetail: string;
   /** 已锁定的共享者客户端 ID */
   publisherClientId?: string;
-  /** GRACE 状态剩余秒数 */
-  graceRemainingSec?: number;
+  /** 未共享屏幕倒计时剩余秒数（PENDING / GRACE 状态） */
+  idleRemainingSec?: number;
   /** 无人观看自动结束剩余秒数 */
   noViewerRemainingSec?: number;
 }

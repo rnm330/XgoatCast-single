@@ -19,7 +19,7 @@ export interface SessionInfo {
   billingDetail: string;
   allowedQualities?: string[];
   publisherClientId?: string;
-  graceRemainingSec?: number;
+  idleRemainingSec?: number;
   noViewerRemainingSec?: number;
 }
 
@@ -43,10 +43,8 @@ export interface AdminConfig {
     triggerWords: string;
   };
   session: {
-    gracePeriodSec: number;
-    noPublisherTimeoutSec: number;
+    idleTimeoutSec: number;
     heartbeatIntervalSec: number;
-    shareStopGraceSec: number;
     noViewerTimeoutSec: number;
   };
   server: {

@@ -28,6 +28,9 @@ export class SessionGateway
     string,
     { token: string; role: string; sessionId: string }
   >();
+  
+  /** 记录每个 session 的已加入观众（用于去重，避免同一观众多次连接重复计数） */
+  private joinedViewers = new Map<string, Set<string>>(); // sessionId -> Set<token>
 
   constructor(
     private readonly sessionService: SessionService,
@@ -37,6 +40,8 @@ export class SessionGateway
   onModuleInit() {
     this.bus.onSessionEnded((event) => {
       this.broadcastSessionEnded(event.sessionId);
+      // 清理该 session 的已加入观众记录
+      this.joinedViewers.delete(event.sessionId);
     });
     this.bus.onSessionStateChanged((event) => {
       const session = this.sessionService.getById(event.sessionId);
@@ -46,14 +51,14 @@ export class SessionGateway
     });
   }
 
-  /** 构建 session_state 事件数据，包含 grace 剩余时间和共享者信息 */
+  /** 构建 session_state 事件数据，包含倒计时信息和共享者信息 */
   private buildState(session: ShareSession) {
     const info = this.sessionService.toInfo(session);
     return {
       status: session.status,
       viewerCount: session.viewerCount,
       publisherClientId: session.publisherClientId,
-      graceRemainingSec: info.graceRemainingSec,
+      idleRemainingSec: info.idleRemainingSec,
       noViewerRemainingSec: info.noViewerRemainingSec,
     };
   }
@@ -89,7 +94,20 @@ export class SessionGateway
     if (role === 'viewer') {
       const viewers = this.countViewers(session.id);
       this.sessionService.updateViewerCount(session.id, viewers);
-      this.sessionService.recordViewerJoin(session.id);
+      
+      // 观众去重：同一观众（token）只记录一次加入，避免重复计数
+      if (!this.joinedViewers.has(session.id)) {
+        this.joinedViewers.set(session.id, new Set());
+      }
+      const viewerSet = this.joinedViewers.get(session.id)!;
+      
+      if (!viewerSet.has(token)) {
+        // 首次加入，记录并递增总人数
+        viewerSet.add(token);
+        this.sessionService.recordViewerJoin(session.id);
+      }
+      // 否则，只更新在线人数，不递增总人数
+      
       this.server.to(session.id).emit('viewer_count', { count: viewers });
       // 发送session_state以更新noViewerRemainingSec
       this.server.to(session.id).emit('session_state', this.buildState(session));

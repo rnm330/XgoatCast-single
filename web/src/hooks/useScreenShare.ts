@@ -87,7 +87,7 @@ export function useScreenShare(token: string, onTrackEnded?: () => void) {
   // 本地预览：当 isSharing 变为 true 且容器已挂载后，播放本地屏幕轨道
   useEffect(() => {
     if (isSharing && localPreviewRef.current && screenVideoRef.current) {
-      screenVideoRef.current.play(localPreviewRef.current, { fit: 'cover' });
+      screenVideoRef.current.play(localPreviewRef.current, { fit: 'contain' });
     }
   }, [isSharing]);
 
@@ -110,7 +110,10 @@ export function useScreenShare(token: string, onTrackEnded?: () => void) {
         const qKey = opts.qualityKey || '1080p30';
         const qOpt = QUALITY_OPTIONS.find((q) => q.key === qKey) || QUALITY_OPTIONS[2];
         const screenTrack = await AgoraRTC.createScreenVideoTrack(
-          { encoderConfig: qOpt.encoderConfig },
+          { 
+            encoderConfig: qOpt.encoderConfig,
+            optimizationMode: 'detail',  // 屏幕共享优先清晰度
+          },
           'auto',
         );
 
