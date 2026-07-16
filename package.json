@@ -8,8 +8,6 @@
     "web"
   ],
   "scripts": {
-    "dev:server": "npm run start:dev --workspace server",
-    "dev:web": "npm run dev --workspace web",
     "build:web": "npm run build --workspace web",
     "build:server": "npm run build --workspace server",
     "build": "npm run build:web && npm run build:server",

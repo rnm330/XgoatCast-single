@@ -9,22 +9,6 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  server: {
-    host: '0.0.0.0',
-    port: 5173,
-    allowedHosts: true,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3520',
-        changeOrigin: true,
-      },
-      '/socket.io': {
-        target: 'http://localhost:3520',
-        changeOrigin: true,
-        ws: true,
-      },
-    },
-  } as any,
   build: {
     outDir: 'dist',
     sourcemap: false,
