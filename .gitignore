@@ -1,0 +1,36 @@
+node_modules
+dist
+build
+.env
+# 所有 data 目录下的运行时数据（json）均忽略，保留 .gitkeep 占位文件
+**/data/*.json
+!data/.gitkeep
+*.log
+.DS_Store
+.vscode
+.idea
+generated-images
+
+# 部署包（本地构建产物，不应入库）
+xgoatcast-deploy*.tar.gz
+# 内部计划文档
+plans/
+
+# 项目内部数据目录（含运行态数据，不应入库）
+.codebuddy/
+
+# 测试与覆盖率产物
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# 构建 / 包管理器日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 本地环境变量（仅 .env.example 入库，真实凭证不入库）
+.env.local
+.env.*.local
+
+
